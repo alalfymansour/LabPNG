@@ -1,9 +1,3 @@
-"""
-Background removal using rembg with u2netp model.
-
-u2netp chosen over u2net: ~5MB model vs ~200MB, much faster download and inference,
-while still producing high-quality results suitable for a web tool.
-"""
 from rembg import new_session, remove
 import io
 
