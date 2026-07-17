@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: labpng
+  namespace: labpng
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: labpng
+  template:
+    metadata:
+      labels:
+        app: labpng
+    spec:
+      imagePullSecrets:
+        - name: ghcr-secret
+      containers:
+        - name: labpng
+          image: ghcr.io/alalfymansour/labpng:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: REMBG_CACHE_DIR
+              value: /srv/rembg
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "250m"
+            limits:
+              memory: "768Mi"
+              cpu: "1"
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: 8000
+            initialDelaySeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: 8000
+            initialDelaySeconds: 10

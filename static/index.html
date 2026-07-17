@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LabPNG</title>
+  <style>
+    body {
+      background: #282828;
+      color: #ebdbb2;
+      font-family: system-ui, sans-serif;
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      color: #d3869b;
+      margin: 2rem 0 0.5rem;
+    }
+
+    .subtitle {
+      color: #a89984;
+      margin-bottom: 2rem;
+    }
+
+    .drop-zone {
+      width: 500px;
+      max-width: 90vw;
+      min-height: 200px;
+      border: 2px dashed #504945;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+
+    .drop-zone.drag-over {
+      border-color: #d3869b;
+      background: #32302f;
+    }
+
+    .drop-zone input[type="file"] {
+      display: none;
+    }
+
+    .button {
+      background: #d3869b;
+      color: #282828;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .button:hover {
+      opacity: 0.9;
+    }
+
+    .status-area {
+      display: none;
+      margin: 1.5rem 0;
+      text-align: center;
+    }
+
+    .status-area.visible {
+      display: block;
+    }
+
+    .spinner {
+      border: 3px solid #504945;
+      border-top: 3px solid #d3869b;
+      border-radius: 50%;
+      width: 36px;
+      height: 36px;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 1rem;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .status-text {
+      color: #a89984;
+      font-size: 0.95rem;
+    }
+
+    .preview-area {
+      display: none;
+      gap: 2rem;
+      margin: 2rem 0;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .preview-area.visible {
+      display: flex;
+    }
+
+    .preview-panel {
+      text-align: center;
+    }
+
+    .preview-panel img {
+      max-width: 400px;
+      max-height: 400px;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      background: #1d2021;
+    }
+
+    .preview-panel .label {
+      color: #a89984;
+      margin-top: 0.5rem;
+      font-size: 0.875rem;
+    }
+
+    .error {
+      color: #fb4934;
+      display: none;
+      margin: 1rem 0;
+      padding: 0.75rem 1rem;
+      background: #3c1f1e;
+      border-radius: 6px;
+      max-width: 500px;
+    }
+
+    .error.visible {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <h1>LabPNG</h1>
+  <p class="subtitle">Remove backgrounds from your images</p>
+
+  <div class="drop-zone" id="dropZone">
+    <p>Drag &amp; drop an image here</p>
+    <p style="color: #a89984; margin: 0.5rem 0;">or</p>
+    <button class="button" id="selectButton">Choose Image</button>
+    <input type="file" id="fileInput" accept="image/*">
+  </div>
+
+  <div class="status-area" id="statusArea">
+    <div class="spinner"></div>
+    <p class="status-text" id="statusText">Submitting image...</p>
+  </div>
+
+  <div class="error" id="error"></div>
+
+  <div class="preview-area" id="previewArea">
+    <div class="preview-panel">
+      <img id="originalImage" alt="Original">
+      <div class="label">Original</div>
+    </div>
+    <div class="preview-panel">
+      <img id="resultImage" alt="Processed">
+      <div class="label">Result</div>
+    </div>
+  </div>
+
+  <script>
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const selectButton = document.getElementById('selectButton');
+    const statusArea = document.getElementById('statusArea');
+    const statusText = document.getElementById('statusText');
+    const error = document.getElementById('error');
+    const previewArea = document.getElementById('previewArea');
+    const originalImage = document.getElementById('originalImage');
+    const resultImage = document.getElementById('resultImage');
+
+    let currentEventSource = null;
+    let currentObjectUrls = [];
+
+    function revokeUrls() {
+      currentObjectUrls.forEach(url => URL.revokeObjectURL(url));
+      currentObjectUrls = [];
+    }
+
+    function showError(message) {
+      error.textContent = message;
+      error.classList.add('visible');
+    }
+
+    function hideError() {
+      error.classList.remove('visible');
+    }
+
+    function showStatus(text) {
+      statusText.textContent = text;
+      statusArea.classList.add('visible');
+    }
+
+    function hideStatus() {
+      statusArea.classList.remove('visible');
+    }
+
+    function listenForJob(jobId, file) {
+      if (currentEventSource) {
+        currentEventSource.close();
+      }
+
+      const originalUrl = URL.createObjectURL(file);
+      currentObjectUrls.push(originalUrl);
+      originalImage.src = originalUrl;
+
+      showStatus('Submitting image...');
+
+      const eventSource = new EventSource('/queue/' + jobId);
+      currentEventSource = eventSource;
+
+      eventSource.onmessage = function (e) {
+        const data = JSON.parse(e.data);
+
+        switch (data.status) {
+          case 'queued':
+            showStatus('You are #' + data.position + ' in queue');
+            break;
+
+          case 'processing':
+            showStatus('Processing image... (this may take 5\u201315 seconds)');
+            break;
+
+          case 'done':
+            eventSource.close();
+            currentEventSource = null;
+            hideStatus();
+
+            const byteString = atob(data.image);
+            const ab = new ArrayBuffer(byteString.length);
+            const ia = new Uint8Array(ab);
+            for (let i = 0; i < byteString.length; i++) {
+              ia[i] = byteString.charCodeAt(i);
+            }
+            const blob = new Blob([ab], { type: 'image/png' });
+            const resultUrl = URL.createObjectURL(blob);
+            currentObjectUrls.push(resultUrl);
+            resultImage.src = resultUrl;
+            previewArea.classList.add('visible');
+            break;
+
+          case 'error':
+            eventSource.close();
+            currentEventSource = null;
+            hideStatus();
+            showError(data.message || 'Background removal failed. Please try a different image.');
+            break;
+        }
+      };
+
+      eventSource.onerror = function () {
+        eventSource.close();
+        currentEventSource = null;
+        hideStatus();
+        showError('Connection lost. Please try again.');
+      };
+    }
+
+    function handleFile(file) {
+      if (!file) return;
+      hideError();
+      hideStatus();
+      previewArea.classList.remove('visible');
+      revokeUrls();
+
+      if (currentEventSource) {
+        currentEventSource.close();
+        currentEventSource = null;
+      }
+
+      if (!file.type.startsWith('image/')) {
+        showError('Please select an image file.');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      fetch('/remove-bg', { method: 'POST', body: formData })
+        .then(response => {
+          if (response.status === 413) {
+            throw new Error('File too large. Maximum size is 5MB.');
+          }
+          if (response.status === 429) {
+            throw new Error('Too many uploads. Maximum 10 per hour. Please wait.');
+          }
+          if (response.status === 422) {
+            throw new Error('Background removal failed. Please try a different image.');
+          }
+          if (!response.ok) {
+            throw new Error('An unexpected error occurred. Please try again.');
+          }
+          return response.json();
+        })
+        .then(data => listenForJob(data.job_id, file))
+        .catch(err => showError(err.message));
+    }
+
+    dropZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropZone.classList.add('drag-over');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('drag-over');
+    });
+
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      handleFile(e.dataTransfer.files[0]);
+    });
+
+    selectButton.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', () => {
+      handleFile(fileInput.files[0]);
+      fileInput.value = '';
+    });
+
+    dropZone.addEventListener('click', e => {
+      if (e.target === selectButton) return;
+      fileInput.click();
+    });
+  </script>
+</body>
+</html>
