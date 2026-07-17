@@ -5,7 +5,10 @@ on:
     branches: [main]
 
 env:
+  REGISTRY: ghcr.io
+  IMAGE: ghcr.io/alalfymansour/labpng
   LABPULSE_API: http://192.168.1.167/api/deployments
+  KUBECONFIG: /home/alalfy/.kube/config
 
 jobs:
   deploy:
@@ -14,11 +17,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy to /srv/labpng
-        run: bash deploy.sh
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u alalfymansour --password-stdin
 
-      - name: Wait for service
-        run: sleep 5 && curl -sf http://127.0.0.1:8000/metrics > /dev/null || (journalctl -u labpng -n 20 --no-pager && false)
+      - name: Build and push image
+        run: |
+          docker build -t ${{ env.IMAGE }}:${{ github.sha }} -t ${{ env.IMAGE }}:latest .
+          docker push ${{ env.IMAGE }}:${{ github.sha }}
+          docker push ${{ env.IMAGE }}:latest
+
+      - name: Apply k8s manifests
+        run: |
+          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
+          kubectl apply -f k8s/ingress.yaml
+
+      - name: Wait for rollout
+        run: kubectl rollout status deployment/labpng -n labpng --timeout=5m
 
       - name: Record success in LabPulse
         if: success()
