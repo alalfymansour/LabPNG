@@ -9,8 +9,8 @@ ENV REMBG_CACHE_DIR=/srv/rembg
 WORKDIR /srv
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir --no-binary onnxruntime onnxruntime
 RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --no-binary onnxruntime --force-reinstall onnxruntime
 
 RUN apt-get purge -y --auto-remove build-essential cmake && \
     rm -rf /var/lib/apt/lists/*
