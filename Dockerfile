@@ -6,7 +6,8 @@ WORKDIR /srv
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-RUN python -c "from rembg import new_session; new_session('u2netp')"
+RUN python -c "import onnxruntime; print('onnx OK')" && \
+    python -c "import rembg; print('rembg OK')"
 
 COPY . .
 
