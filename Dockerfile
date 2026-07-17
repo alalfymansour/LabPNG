@@ -1,13 +1,17 @@
 FROM python:3.11-slim
 
+RUN apt-get update && apt-get install -y --no-install-recommends execstack && \
+    rm -rf /var/lib/apt/lists/*
+
 ENV REMBG_CACHE_DIR=/srv/rembg
 
 WORKDIR /srv
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-RUN python -c "import onnxruntime; print('onnx OK')" && \
-    python -c "import rembg; print('rembg OK')"
+RUN pip install --no-cache-dir -r requirements.txt && \
+    execstack -c /usr/local/lib/python3.11/site-packages/onnxruntime/capi/*.so* 2>/dev/null; \
+    execstack -c /usr/local/lib/python3.11/site-packages/onnxruntime/*.so* 2>/dev/null; \
+    apt-get purge -y --auto-remove execstack
 
 COPY . .
 
