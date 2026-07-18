@@ -17,6 +17,7 @@ RUN mkdir -p /build/tmp && \
     --config Release \
     --build_dir /build \
     --skip_tests \
+    --compile_no_warning_as_error \
     --parallel \
     --cmake_extra_defines \
         onnxruntime_ENABLE_AVX=OFF \
