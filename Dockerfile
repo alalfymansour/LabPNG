@@ -25,6 +25,20 @@ RUN mkdir -p /build/tmp && \
         onnxruntime_ENABLE_AVX512=OFF \
     --allow_running_as_root
 
+# Python bindings NOT in first build (no --build_wheel). Rebuild incrementally.
+RUN TMPDIR=/build/tmp python tools/ci_build/build.py \
+    --config Release \
+    --build_dir /build \
+    --build_wheel \
+    --skip_tests \
+    --compile_no_warning_as_error \
+    --parallel \
+    --cmake_extra_defines \
+        onnxruntime_ENABLE_AVX=OFF \
+        onnxruntime_ENABLE_AVX2=OFF \
+        onnxruntime_ENABLE_AVX512=OFF \
+    --allow_running_as_root
+
 RUN pip install --no-cache-dir /build/Release/dist/onnxruntime-*.whl
 
 FROM python:3.11-slim
