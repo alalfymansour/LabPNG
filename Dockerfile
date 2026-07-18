@@ -1,4 +1,4 @@
-FROM python:3.11-slim AS ort-builder
+FROM python:3.13-slim AS ort-builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git cmake build-essential python3-dev \
@@ -29,7 +29,7 @@ RUN mkdir -p /build/tmp && \
         onnxruntime_ENABLE_AVX512=OFF \
     --allow_running_as_root
 
-FROM python:3.11-slim
+FROM python:3.13-slim
 
 ENV REMBG_CACHE_DIR=/srv/rembg
 WORKDIR /app
