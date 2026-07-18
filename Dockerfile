@@ -7,8 +7,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN git clone --recursive --depth 1 --branch v1.16.3 \
     https://github.com/microsoft/onnxruntime.git /opt/ort
 
+# GitLab regenerated Eigen archive → SHA1 mismatch. Skip hash check.
+RUN sed -i '/URL_HASH/d' /opt/ort/cmake/external/eigen.cmake
+
 WORKDIR /opt/ort
-RUN python tools/ci_build/build.py \
+# TMPDIR on /build avoids Docker overlay rename() bug with `ar`
+RUN mkdir -p /build/tmp && \
+    TMPDIR=/build/tmp python tools/ci_build/build.py \
     --config Release \
     --build_dir /build \
     --skip_tests \
