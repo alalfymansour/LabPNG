@@ -26,7 +26,8 @@ RUN mkdir -p /build/tmp && \
     --allow_running_as_root
 
 # Python bindings NOT in first build (no --build_wheel). Rebuild incrementally.
-RUN TMPDIR=/build/tmp python tools/ci_build/build.py \
+RUN pip install numpy && \
+    TMPDIR=/build/tmp python tools/ci_build/build.py \
     --config Release \
     --build_dir /build \
     --build_wheel \
